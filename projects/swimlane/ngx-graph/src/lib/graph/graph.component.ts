@@ -45,6 +45,7 @@ import { id } from '../utils/id';
 import { PanningAxis } from '../enums/panning.enum';
 import { MiniMapPosition } from '../enums/mini-map-position.enum';
 import { throttleable } from '../utils/throttle';
+//import { TooltipService } from '../tooltip/tooltip.service';
 
 /**
  * Matrix
@@ -59,11 +60,17 @@ export interface Matrix {
 }
 
 @Component({
+  // providers: [TooltipService],
   selector: 'ngx-graph',
   styleUrls: ['./graph.component.scss'],
   templateUrl: 'graph.component.html',
   encapsulation: ViewEncapsulation.None,
-  changeDetection: ChangeDetectionStrategy.OnPush
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  animations: [
+    trigger('animationState', [
+      ngTransition(':enter', [style({ opacity: 0 }), animate('500ms 100ms', style({ opacity: 1 }))])
+    ])
+  ]
 })
 export class GraphComponent extends BaseChartComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @Input() legend: boolean = false;
@@ -145,6 +152,9 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
   minimapOffsetY: number = 0;
   isMinimapPanning = false;
   minimapClipPathId: string;
+
+  public chartWidth: any;
+  public animations: boolean = true;
 
   constructor(
     private el: ElementRef,
@@ -307,6 +317,7 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
     }
 
     this.zone.run(() => {
+      this.chartWidth = Math.floor((this.width * 12) / 12.0);
       this.dims = calculateViewDimensions({
         width: this.width,
         height: this.height,
