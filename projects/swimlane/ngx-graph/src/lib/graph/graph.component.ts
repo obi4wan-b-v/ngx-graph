@@ -22,19 +22,12 @@ import {
   OnChanges,
   SimpleChanges
 } from '@angular/core';
-import {
-  BaseChartComponent,
-  ChartComponent,
-  ColorHelper,
-  ViewDimensions,
-  calculateViewDimensions
-} from '@swimlane/ngx-charts';
 import { select } from 'd3-selection';
 import * as shape from 'd3-shape';
 import * as ease from 'd3-ease';
 import 'd3-transition';
-import { Observable, Subscription, of } from 'rxjs';
-import { first } from 'rxjs/operators';
+import { Observable, Subscription, of, fromEvent as observableFromEvent } from 'rxjs';
+import { first, debounceTime } from 'rxjs/operators';
 import { identity, scale, smoothMatrix, toSVG, transform, translate } from 'transformation-matrix';
 import { Layout } from '../models/layout.model';
 import { LayoutService } from './layouts/layout.service';
@@ -45,7 +38,10 @@ import { id } from '../utils/id';
 import { PanningAxis } from '../enums/panning.enum';
 import { MiniMapPosition } from '../enums/mini-map-position.enum';
 import { throttleable } from '../utils/throttle';
+import { ColorHelper } from '../utils/color.helper';
+import { ViewDimensions, calculateViewDimensions } from '../utils/view-dimensions.helper';
 //import { TooltipService } from '../tooltip/tooltip.service';
+import { VisibilityObserver } from '../utils/visibility-observer';
 
 /**
  * Matrix
@@ -72,7 +68,7 @@ export interface Matrix {
     ])
   ]
 })
-export class GraphComponent extends BaseChartComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
+export class GraphComponent implements OnInit, OnChanges, OnDestroy, AfterViewInit {
   @Input() legend: boolean = false;
   @Input() nodes: Node[] = [];
   @Input() clusters: ClusterNode[] = [];
@@ -119,7 +115,6 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
   @ContentChild('defsTemplate') defsTemplate: TemplateRef<any>;
   @ContentChild('miniMapNodeTemplate') miniMapNodeTemplate: TemplateRef<any>;
 
-  @ViewChild(ChartComponent, { read: ElementRef, static: true }) chart: ElementRef;
   @ViewChildren('nodeElement') nodeElements: QueryList<ElementRef>;
   @ViewChildren('linkElement') linkElements: QueryList<ElementRef>;
 
@@ -154,16 +149,26 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
   minimapClipPathId: string;
 
   public chartWidth: any;
-  public animations: boolean = true;
+
+  // @Input() results: any;
+  @Input() view: [number, number];
+  @Input() scheme: any = 'cool';
+  @Input() schemeType: string = 'ordinal';
+  @Input() customColors: any;
+  @Input() animations: boolean = true;
+  @Output() select = new EventEmitter();
+
+  width: number;
+  height: number;
+  resizeSubscription: any;
+  visibilityObserver: VisibilityObserver;
 
   constructor(
     private el: ElementRef,
     public zone: NgZone,
     public cd: ChangeDetectorRef,
     private layoutService: LayoutService
-  ) {
-    super(el, zone, cd);
-  }
+  ) {}
 
   @Input()
   groupResultsBy: (node: any) => string = node => node.label;
@@ -255,6 +260,8 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
   }
 
   ngOnChanges(changes: SimpleChanges): void {
+    this.basicUpdate();
+
     const { layout, layoutSettings, nodes, clusters, links } = changes;
     this.setLayout(this.layout);
     if (layoutSettings) {
@@ -287,7 +294,12 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
    * @memberOf GraphComponent
    */
   ngOnDestroy(): void {
-    super.ngOnDestroy();
+    this.unbindEvents();
+    if (this.visibilityObserver) {
+      this.visibilityObserver.visible.unsubscribe();
+      this.visibilityObserver.destroy();
+    }
+
     for (const sub of this.subscriptions) {
       sub.unsubscribe();
     }
@@ -301,7 +313,12 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
    * @memberOf GraphComponent
    */
   ngAfterViewInit(): void {
-    super.ngAfterViewInit();
+    this.bindWindowResizeEvent();
+
+    // listen for visibility of the element for hidden by default scenario
+    this.visibilityObserver = new VisibilityObserver(this.el, this.zone);
+    this.visibilityObserver.visible.subscribe(this.update.bind(this));
+
     setTimeout(() => this.update());
   }
 
@@ -311,7 +328,7 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
    * @memberOf GraphComponent
    */
   update(): void {
-    super.update();
+    this.basicUpdate();
     if (!this.curve) {
       this.curve = shape.curveBundle.beta(1);
     }
@@ -687,7 +704,7 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
           .duration(_animate ? 500 : 0)
           .attr('d', edge.line);
 
-        const textPathSelection = select(this.chartElement.nativeElement).select(`#${edge.id}`);
+        const textPathSelection = select(this.el.nativeElement).select(`#${edge.id}`);
         textPathSelection
           .attr('d', edge.oldTextPath)
           .transition()
@@ -765,7 +782,7 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
       const mouseY = $event.clientY;
 
       // Transform the mouse X/Y into a SVG X/Y
-      const svg = this.chart.nativeElement.querySelector('svg');
+      const svg = this.el.nativeElement.querySelector('svg:svg');
       const svgGroup = svg.querySelector('g.chart');
 
       const point = svg.createSVGPoint();
@@ -1191,5 +1208,136 @@ export class GraphComponent extends BaseChartComponent implements OnInit, OnChan
         y: (_first.y + _second.y) / 2
       };
     }
+  }
+
+  ////
+  public basicUpdate(): void {
+    if (this.results) {
+      this.results = this.cloneData(this.results);
+    } else {
+      this.results = [];
+    }
+
+    if (this.view) {
+      this.width = this.view[0];
+      this.height = this.view[1];
+    } else {
+      const dims = this.getContainerDims();
+      if (dims) {
+        this.width = dims.width;
+        this.height = dims.height;
+      }
+    }
+
+    // default values if width or height are 0 or undefined
+    if (!this.width) {
+      this.width = 600;
+    }
+
+    if (!this.height) {
+      this.height = 400;
+    }
+
+    this.width = Math.floor(this.width);
+    this.height = Math.floor(this.height);
+
+    if (this.cd) {
+      this.cd.markForCheck();
+    }
+  }
+
+  public getContainerDims(): any {
+    let width;
+    let height;
+    const hostElem = this.el.nativeElement;
+
+    if (hostElem.parentNode !== null) {
+      // Get the container dimensions
+      const dims = hostElem.parentNode.getBoundingClientRect();
+      width = dims.width;
+      height = dims.height;
+    }
+
+    if (width && height) {
+      return { width, height };
+    }
+
+    return null;
+  }
+
+  /**
+   * Converts all date objects that appear as name
+   * into formatted date strings
+   */
+  formatDates(): void {
+    for (let i = 0; i < this.results.length; i++) {
+      const g = this.results[i];
+      g.label = g.name;
+      if (g.label instanceof Date) {
+        g.label = g.label.toLocaleDateString();
+      }
+
+      if (g.series) {
+        for (let j = 0; j < g.series.length; j++) {
+          const d = g.series[j];
+          d.label = d.name;
+          if (d.label instanceof Date) {
+            d.label = d.label.toLocaleDateString();
+          }
+        }
+      }
+    }
+  }
+
+  protected unbindEvents(): void {
+    if (this.resizeSubscription) {
+      this.resizeSubscription.unsubscribe();
+    }
+  }
+
+  private bindWindowResizeEvent(): void {
+    const source = observableFromEvent(window, 'resize');
+    const subscription = source.pipe(debounceTime(200)).subscribe(e => {
+      this.update();
+      if (this.cd) {
+        this.cd.markForCheck();
+      }
+    });
+    this.resizeSubscription = subscription;
+  }
+
+  /**
+   * Clones the data into a new object
+   *
+   * @memberOf BaseChart
+   */
+  private cloneData(data): any {
+    const results = [];
+
+    for (const item of data) {
+      const copy = {
+        name: item['name']
+      };
+
+      if (item['value'] !== undefined) {
+        copy['value'] = item['value'];
+      }
+
+      if (item['series'] !== undefined) {
+        copy['series'] = [];
+        for (const seriesItem of item['series']) {
+          const seriesItemCopy = Object.assign({}, seriesItem);
+          copy['series'].push(seriesItemCopy);
+        }
+      }
+
+      if (item['extra'] !== undefined) {
+        copy['extra'] = JSON.parse(JSON.stringify(item['extra']));
+      }
+
+      results.push(copy);
+    }
+
+    return results;
   }
 }

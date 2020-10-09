@@ -12,7 +12,6 @@ import { DocspaStackblitzModule } from '@swimlane/docspa-stackblitz';
 import { config } from '../docspa.config';
 import { DemoModule } from 'src/docs/demos/demo.module';
 import { NgxGraphModule } from '@swimlane/ngx-graph';
-import { NgxChartsModule } from '@swimlane/ngx-charts';
 import { preset } from '@swimlane/docspa-remark-preset';
 import { LoggerModule, NgxLoggerLevel } from 'ngx-logger';
 import { environment } from 'src/environments/environment';
@@ -28,7 +27,7 @@ import { AppRoutingModule } from './app-routing.module';
     MarkdownElementsModule.forRoot(),
     LoggerModule.forRoot({ level: NgxLoggerLevel.WARN }),
     RuntimeContentModule.forRoot({
-      imports: [NgxGraphModule, NgxChartsModule, DemoModule]
+      imports: [NgxGraphModule, DemoModule]
     }),
     DocsifyPluginsModule,
     DocspaStackblitzModule,
