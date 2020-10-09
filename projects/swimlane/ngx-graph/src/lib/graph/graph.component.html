@@ -5,8 +5,7 @@
   [@.disabled]="!animations"
   (mouseWheelUp)="onZoom($event, 'in')"
   (mouseWheelDown)="onZoom($event, 'out')"
-  mouseWheel
->
+  mouseWheel>
   <svg:svg class="ngx-charts" [attr.width]="chartWidth" [attr.height]="height">
     <svg:g
       *ngIf="initialized && graph"
