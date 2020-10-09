@@ -782,7 +782,7 @@ export class GraphComponent implements OnInit, OnChanges, OnDestroy, AfterViewIn
       const mouseY = $event.clientY;
 
       // Transform the mouse X/Y into a SVG X/Y
-      const svg = this.el.nativeElement.querySelector('svg:svg');
+      const svg = this.el.nativeElement.querySelector('svg');
       const svgGroup = svg.querySelector('g.chart');
 
       const point = svg.createSVGPoint();

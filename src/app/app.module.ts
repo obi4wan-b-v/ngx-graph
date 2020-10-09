@@ -16,10 +16,12 @@ import { preset } from '@swimlane/docspa-remark-preset';
 import { LoggerModule, NgxLoggerLevel } from 'ngx-logger';
 import { environment } from 'src/environments/environment';
 import { AppRoutingModule } from './app-routing.module';
+import { CommonModule } from '@angular/common'; 
 
 @NgModule({
   declarations: [AppComponent],
   imports: [
+    CommonModule,
     BrowserModule,
     DocspaCoreModule.forRoot(config, environment),
     DemoModule,
