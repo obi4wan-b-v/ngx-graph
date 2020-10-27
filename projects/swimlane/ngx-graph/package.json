@@ -1,6 +1,6 @@
 {
   "name": "@obi4wan/ngx-graph",
-  "version": "7.1.3",
+  "version": "7.1.5",
   "description": "Fork of @swimlane/ngx-graph for OBI4wan",
   "repository": {
     "type": "git",
