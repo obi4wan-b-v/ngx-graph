@@ -17,6 +17,12 @@ We wanted a way to center the graph after the view is initialized on our [OBI Bo
  
  Everything remains unchanged from the point of forking.
  
+ If this fits your use case, install with:
+ 
+ `npm install @obi4wan/ngx-graph --save`
+ 
+ And everything else follow the original ngx-graph guide/documentation, and you are ready to go!
+ 
  Below is from the original README.
 
 
