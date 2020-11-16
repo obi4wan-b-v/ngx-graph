@@ -1,6 +1,6 @@
 # ngx-graph (OBI4wan fork)
 
-This is an OBI4wan fork of ngx-graph from swimlane, specifically to add one feature: post init hook
+This is an [OBI4wan](https://obi4wan.com) fork of ngx-graph from [Swimlane](http://swimlane.com), specifically to add one feature: post init hook
 
 It is unlikely that this is what you are looking for; the main repo for ngx-graph is here:
 
@@ -13,9 +13,11 @@ We wanted a way to center the graph after the view is initialized. In the case o
 ```html
 <ngx-graph ... (postInitHandler)="handleEvent()" ...>
  ```
- where handleEvent is the event handler method.
+ where `handleEvent()` is the event handler method.
  
  Everything remains unchanged from the point of forking.
+ 
+ Below is from the original README.
 
 
 
