@@ -15,7 +15,7 @@ We wanted a way to center the graph after the view is initialized on our [OBI Bo
  ```
  where `handleEvent()` is the event handler method.
  
- Everything remains unchanged from the point of forking.
+ Everything remains unchanged from the point of forking (7.1.2).
  
  If this fits your use case, install with:
  
